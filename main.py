@@ -12,9 +12,9 @@ schedule_a = {
     time(hour=11, minute=30): "Period 4",
     time(hour=12, minute=25): "Lunch",
     time(hour=12, minute=55): "Period 5",
-    time(hour=1, minute=50): "Period 6",
-    time(hour=2, minute=45): "Period 7",
-    time(hour=3, minute=40): "After School"
+    time(hour=12+1, minute=50): "Period 6",
+    time(hour=12+2, minute=45): "Period 7",
+    time(hour=12+3, minute=40): "After School"
 }
 
 schedule_b = {
@@ -26,10 +26,10 @@ schedule_b = {
     time(hour=11, minute=00): "Period 4",
     time(hour=11, minute=45): "Lunch",
     time(hour=12, minute=15): "Period 5",
-    time(hour=1, minute=00): "Period 6",
-    time(hour=1, minute=45): "Period 7",
-    time(hour=2, minute=30): '"Collaboration" period or something',
-    time(hour=3, minute=45): "After School"
+    time(hour=12+1, minute=00): "Period 6",
+    time(hour=12+1, minute=45): "Period 7",
+    time(hour=12+2, minute=30): '"Collaboration" period or something',
+    time(hour=12+3, minute=45): "After School"
 }
 
 token = os.environ["TOKEN"]
