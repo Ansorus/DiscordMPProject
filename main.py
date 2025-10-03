@@ -3,34 +3,8 @@ import os
 import discord
 from datetime import datetime, time
 import web_scraper
-
-schedule_a = {
-    time(hour=8, minute=30): "Period 1",
-    time(hour=9, minute=20): "Period 2",
-    time(hour=10, minute=15): "Brunch",
-    time(hour=10, minute=30): "Period 3",
-    time(hour=11, minute=30): "Period 4",
-    time(hour=12, minute=25): "Lunch",
-    time(hour=12, minute=55): "Period 5",
-    time(hour=12+1, minute=50): "Period 6",
-    time(hour=12+2, minute=45): "Period 7",
-    time(hour=12+3, minute=40): "After School"
-}
-
-schedule_b = {
-    time(hour=0, minute=0): "Before School",
-    time(hour=8, minute=30): "Period 1",
-    time(hour=9, minute=10): "Period 2",
-    time(hour=9, minute=55): "Brunch",
-    time(hour=10, minute=10): "Period 3",
-    time(hour=11, minute=00): "Period 4",
-    time(hour=11, minute=45): "Lunch",
-    time(hour=12, minute=15): "Period 5",
-    time(hour=12+1, minute=00): "Period 6",
-    time(hour=12+1, minute=45): "Period 7",
-    time(hour=12+2, minute=30): '"Collaboration" period or something',
-    time(hour=12+3, minute=45): "After School"
-}
+from schedules import schedule_a, schedule_b, pride_1, pride_2
+import json
 
 token = os.environ["TOKEN"]
 
@@ -41,42 +15,80 @@ async def on_ready():
     print(f"{bot.user} is ready and online!")
 
 @bot.slash_command(name="mphs-events", description="Displays upcoming MPHS Events")
-async def mphsevents(ctx: discord.ApplicationContext):
+async def mphs_events(ctx: discord.ApplicationContext):
     events = web_scraper.get_events()
-    what_to_say = "**EVENTS:**\n\n"
+
+    embed = discord.Embed(
+        title="**MPHS EVENTS**",
+        description="Here are a list of events",
+        color=discord.Colour.blue(),  # Pycord provides a class with default colors you can choose from
+    )
+
     for event in events:
-        what_to_say += f"__{event["name"]}__\n"
+
         start = event["start"].strftime("%m/%d/%Y")
         end = event["end"].strftime("%m/%d/%Y")
-
+        when = ""
         if start != end:
-            what_to_say += "Start: " + start + "\n"
-            what_to_say += "End: " + end + "\n\n"
+            when += f"Start:{start}, "
+            when += f"End: {end}\n"
         else:
-            what_to_say += "When: " + start + ", "
+            when += f"{start}\n"
             start_time = event["start"].strftime("%I:%M%p")
-            end_time = _time = event["start"].strftime("%I:%M%p")
+            end_time = event["end"].strftime("%I:%M%p")
             if start_time != end_time:
-                what_to_say += start_time + "-" + end_time + "\n\n"
+                when += start_time + "-" + end_time + "\n"
             else:
-                what_to_say += start_time + "\n\n"
+                when += start_time + "\n"
 
-    await ctx.respond(what_to_say)
+        embed.add_field(name=f"__{event["name"]}__", value=when, inline=False)
 
+    await ctx.respond("Here are the events upcoming in the next 14 days", embed=embed)
 
+today_schedule = None
+
+schedule_list = [
+    discord.OptionChoice(name="Schedule A", value="a"),
+    discord.OptionChoice(name="Schedule B", value="b"),
+    discord.OptionChoice(name="Pride 1", value="pride1"),
+    discord.OptionChoice(name="Pride 2", value="pride2")
+]
+
+@bot.slash_command(name="mphs-set-schedule", description="Sets MPHS schedule to either A, B, Pride 1, or Pride 2")
+async def set_schedule(ctx: discord.ApplicationContext,
+                       schedule: discord.Option(str, choices=schedule_list)):
+    global today_schedule
+    if schedule.lower() == "a":
+        today_schedule = ["Schedule A",schedule_a]
+        await ctx.respond("Changed schedule to A!")
+    elif schedule.lower() == "b":
+        today_schedule = ["Schedule B",schedule_b]
+        await ctx.respond("Changed schedule to B!")
+    elif schedule.lower() == "pride1":
+        today_schedule = ["Pride 1",pride_1]
+        await ctx.respond("Changed schedule to Pride 1!")
+    elif schedule.lower() == "pride2":
+        today_schedule = ["Pride 2",pride_2]
+        await ctx.respond("Changed schedule to Pride 2!")
+    else:
+        await ctx.respond('Sorry, the current options are: "a","b","pride1","pride2"')
 
 @bot.slash_command(name="mphs-schedule", description="Displays the MPHS schedule")
 async def mp_schedule(ctx: discord.ApplicationContext):
 
     today = datetime.now()
     week_day = today.strftime("%A")
-    what_to_say = "Today is a " + week_day + ", so it must be "
+
+    if today_schedule:
+        what_to_say = f"Today is {today_schedule[0]}\nIt is "
+        schedule = today_schedule[1]
+    else:
+        what_to_say = "Today is a " + week_day + ", so it must be "
+        what_to_say += "Schedule B" if week_day.lower() == "wednesday" else "Schedule A"
+        what_to_say += "\nAccording to the schedule, it is currently "
+        schedule = schedule_b if week_day.lower() == "wednesday" else schedule_a
 
     now = datetime.now().time()
-    what_to_say += "Schedule B" if week_day.lower() == "wednesday" else "Schedule A"
-    what_to_say += "\nAccording to the schedule, it is currently "
-    schedule = schedule_b if week_day.lower() == "wednesday" else schedule_a
-
     period = ""
     time_end = ""
     for key, item in schedule.items():
@@ -86,10 +98,46 @@ async def mp_schedule(ctx: discord.ApplicationContext):
             today_key = datetime.combine(datetime.today(), key)
             today_now = datetime.now()
             delta = math.floor((today_key - today_now).total_seconds() / 60)
-            time_end = "\nand next period will be in " + str(delta) + " minutes"
+            time_end = f"\nand next period will be in {str(delta)} minute" + ("s" if delta > 1 else "")
             break
     what_to_say += period + time_end
     with open("schedule.png", 'rb') as file:
         await ctx.respond(what_to_say,file=discord.File(file))
+
+@bot.slash_command(name="mphs-add-homework", description="Adds homework for today")
+async def add_homework(ctx: discord.ApplicationContext,
+                       class_: discord.Option(discord.SlashCommandOptionType.string),
+                       homework_name: discord.Option(discord.SlashCommandOptionType.string)):
+    with open("homework.txt", 'a') as file:
+        to_str = json.dumps([class_, homework_name]) + '\n'
+        file.write(to_str)
+        await ctx.respond(f'Added homework "{homework_name}" for class "{class_}"!')
+
+@bot.slash_command(name="mphs-clear-homework", description="Adds homework for today")
+async def clear_homework(ctx: discord.ApplicationContext):
+    with open("homework.txt", 'w') as file:
+        file.write("")
+        await ctx.respond("Homework cleared!")
+
+@bot.slash_command(name="mphs-homework", description="Adds homework for today")
+async def get_homework(ctx: discord.ApplicationContext):
+    embed = discord.Embed(
+        title="Homework for Classes",
+        description="Here are a list of homeworks for classes. If there's one missing here, use /mphs-add-homework",
+        color=discord.Colour.yellow(),  # Pycord provides a class with default colors you can choose from
+    )
+
+    classes = ""
+    homework = ""
+    with open("homework.txt", 'r') as file:
+        lines = file.readlines()
+    for line in lines:
+        json_table = json.loads(line)
+        classes += json_table[0] + "\n"
+        homework += json_table[1] + "\n"
+    embed.add_field(name="__Class__", value=classes, inline=True)
+    embed.add_field(name="__Homework__", value=homework, inline=True)
+
+    await ctx.respond("Here is all the homework", embed=embed)
 
 bot.run(token) # run the bot with the token
