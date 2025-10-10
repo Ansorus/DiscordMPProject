@@ -8,8 +8,6 @@ token = "AIzaSyDqbv_dtuGWizpUIgvafUbPZBtqn6cnGnw"
 
 encoded = urllib.parse.quote("uti479jsh2khqt45rnu4l87oik@group.calendar.google.com")
 
-ex = "2020-06-03T10:00:00-07:00"
-
 formatted = datetime.now(pytz.utc).isoformat()
 max_time = (datetime.now(pytz.utc) + timedelta(days=14)).isoformat()
 
