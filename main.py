@@ -4,6 +4,7 @@ import discord
 from datetime import datetime, time
 import web_scraper
 from schedules import schedule_a, schedule_b, pride_1, pride_2
+from weather import get_weather
 import json
 
 token = os.environ["TOKEN"]
@@ -13,6 +14,12 @@ bot = discord.Bot()
 @bot.event
 async def on_ready():
     print(f"{bot.user} is ready and online!")
+
+@bot.slash_command(name="mphs-weather", description="Advises to bring an Umbrella if it will rain in the next 5 days")
+async def mphs_weather(ctx: discord.ApplicationContext):
+    weather = get_weather()
+    if weather is not None:
+        await ctx.respond(f"It will rain in {weather}, bring an umbrella!")
 
 @bot.slash_command(name="mphs-events", description="Displays upcoming MPHS Events")
 async def mphs_events(ctx: discord.ApplicationContext):
