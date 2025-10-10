@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 import requests
 
 api_key = os.environ["WEATHERKEY"]
-# api_key = "ece873f94e3bbabfd03ef3c077d1a8cd"
 url = "https://api.openweathermap.org/data/2.5/forecast"
 
 params = {
