@@ -1,11 +1,15 @@
 import math
 import os
+import asyncio
+import aiofiles
 import discord
-from datetime import datetime, time
+from datetime import datetime
 import web_scraper
 from schedules import schedule_a, schedule_b, pride_1, pride_2
 from weather import get_weather
 import json
+from equation_solver import solve_equation
+from data_structures import Node
 
 token = os.environ["TOKEN"]
 
@@ -98,7 +102,7 @@ async def mp_schedule(ctx: discord.ApplicationContext):
     now = datetime.now().time()
     period = ""
     time_end = ""
-    for key, item in schedule.items():
+    for key, item in enumerate(schedule.items()):
         if now > key:
             period = item
         else:
@@ -126,7 +130,7 @@ async def clear_homework(ctx: discord.ApplicationContext):
         file.write("")
         await ctx.respond("Homework cleared!")
 
-@bot.slash_command(name="mphs-homework", description="Adds homework for today")
+@bot.slash_command(name="mphs-homework", description="Gets homework for today")
 async def get_homework(ctx: discord.ApplicationContext):
     embed = discord.Embed(
         title="Homework for Classes",
@@ -146,5 +150,79 @@ async def get_homework(ctx: discord.ApplicationContext):
     embed.add_field(name="__Homework__", value=homework, inline=True)
 
     await ctx.respond("Here is all the homework", embed=embed)
+
+async def order_leaderboard(board):
+    head = None
+    for key in board.keys():
+        item = board[key]
+        obj = Node({"Name": key, "Time": item})
+        if head is None:
+            head = obj
+        else:
+            node = head
+            while True:
+                if head.reference['Time'] < obj.reference['Time']:
+                    head.left = obj
+                    obj.right = head
+                    head = obj
+                    break
+                if node.reference['Time'] < obj.reference['Time']:
+                    node.left = obj
+                    obj.right = node
+                    break
+                if node.right is None:
+                    node.right = obj
+                    obj.left = node
+                    break
+                node = node.right
+    return head
+
+
+@bot.slash_command(name="evaluate", description="Solves an expression")
+async def evaluate(ctx: discord.ApplicationContext, expression: discord.Option(discord.SlashCommandOptionType.string)):
+    result = solve_equation(expression)
+    await ctx.respond(f"The answer is: {result:g}" if result is not None else "ERROR")
+
+@bot.slash_command(name="mphs-study", description="Puts you on the leaderboard")
+async def study(ctx: discord.ApplicationContext, minutes: discord.Option(discord.SlashCommandOptionType.number)):
+    async with aiofiles.open("study-leaderboard.json", 'r') as file:
+        leaderboard_str = await file.read()
+        leaderboard = json.loads(leaderboard_str) if leaderboard_str != "" else {}
+    async with aiofiles.open("study-leaderboard.json", 'w') as file:
+        leaderboard[ctx.user.name] = float(minutes) + (leaderboard[ctx.user.name] if ctx.user.name in leaderboard else 0)
+        await file.write(json.dumps(leaderboard))
+    ordered_head = await order_leaderboard(leaderboard)
+    node = ordered_head
+    index = 1
+    while True:
+        if node.reference['Name'] == ctx.user.name:
+            break
+        node = node.right
+        index += 1
+    await ctx.respond(f"You are now top {index} of the leaderboard")
+
+@bot.slash_command(name="mphs-leaderboard", description="Displays current leaderboard")
+async def get_leaderboard(ctx: discord.ApplicationContext):
+    async with aiofiles.open("study-leaderboard.json", 'r') as file:
+        leaderboard_str = await file.read()
+        leaderboard = json.loads(leaderboard_str) if leaderboard_str != "" else {}
+    ordered_head = await order_leaderboard(leaderboard)
+    embed = discord.Embed(
+        title="**STUDY LEADERBOARD**",
+        description="Here are the best studying students",
+        color=discord.Colour.yellow(),  # Pycord provides a class with default colors you can choose from
+    )
+    full_list = ""
+    node = ordered_head
+    index = 1
+    while True:
+        full_list += f"{index}. {node.reference['Name']} - {node.reference['Time']} min\n"
+        node = node.right
+        index += 1
+        if node is None:
+            break
+    embed.add_field(name=f"__Students:__", value=full_list, inline=False)
+    await ctx.respond("Here it is!", embed=embed)
+
 
 bot.run(token) # run the bot with the token
